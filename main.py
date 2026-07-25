@@ -1,68 +1,30 @@
-from fastapi import FastAPI, HTTPException
 import modal
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi.responses import Response
 
-app = FastAPI()
+app = FastAPI(title="Stable Diffusion image 2 image model api")
 
 @app.get("/")
-def root():
-    return {"status": "Backend is live"}
+def health_check():
+    return {
+        "status": "IMG2IMG Backend is running"
+    }
 
-@app.post("/generate")
-def generate_text(prompt: str):
+@app.post('/transform')
+async def transform_image(prompt: str = Form(...), strength: float = Form(0.75), file: UploadFile = File(...)):
     try:
-        ModelRunner = modal.Cls.from_name("full-application-2", "ModalRunner")
-        model = ModelRunner()
+        image_bytes = await file.read()
 
-        result = model.predict_and_save.remote(prompt=prompt)
+        ModelRunner = modal.Cls.from_name("sd-img2img-app", "SDImg2ImgRunner")
+        runner = ModelRunner()
 
-        return {
-            "status": "success",
-            "output": result["text"]
-        }
+        result_bytes = runner.generate.remote(
+            image_bytes=image_bytes,
+            prompt=prompt,
+            strength=strength
+        )
+
+        return Response(content=result_bytes, media_type="image/png")
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# import modal
-
-# def run_backend():
-#     ModelRunner = modal.Cls.from_name("full-application-2", "ModalRunner")
-#     model = ModelRunner()
-
-#     prompt_text = "Artificial Intelligence will"
-#     response = model.predict_and_save.remote(prompt=prompt_text)
-#     print(response)
-
-#     saved_text = model.read_saved_output.remote()
-#     print(saved_text)
-
-
-# if __name__ == "__main__":
-#     run_backend()
